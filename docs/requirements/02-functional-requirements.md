@@ -241,15 +241,15 @@ These scenarios define validation intent without prescribing user-interface, API
 
 ### Open questions requiring requirements approval or later-phase resolution
 
-1. Which Account and Contact fields are required, and which are prohibited from external display?
-2. What precisely does Enrollment represent, and what record attributes are required?
-3. Which summary measures and rules make Enrollment useful to the Employer Administrator?
-4. How is an authenticated Employer Administrator associated with the employer context?
-5. Is one employer context confirmed as the complete MVP boundary?
-6. What business behavior is expected when data is missing, stale, duplicated, or unavailable?
-7. Which measurable security, privacy, audit, accessibility, performance, availability, freshness, and volume expectations apply?
-8. Who owns the business data, requirements approval, security approval, and final MVP acceptance?
-9. Which business and engineering measures will establish showcase success?
+1. Which Account and Contact fields are required, and which are prohibited from external display? Requird fields from Salesforce
+2. What precisely does Enrollment represent, and what record attributes are required? Custom Object on Salesforce
+3. Which summary measures and rules make Enrollment useful to the Employer Administrator? Summarized information
+4. How is an authenticated Employer Administrator associated with the employer context? Employer Portal should have its own user management. for mvp, hard code couple of users
+5. Is one employer context confirmed as the complete MVP boundary? yes
+6. What business behavior is expected when data is missing, stale, duplicated, or unavailable? show exception message
+7. Which measurable security, privacy, audit, accessibility, performance, availability, freshness, and volume expectations apply? mvp
+8. Who owns the business data, requirements approval, security approval, and final MVP acceptance? data is owned by salesforce
+9. Which business and engineering measures will establish showcase success? end to end success 
 
 Unresolved questions must remain visible inputs to the appropriate later phase; they do not authorize assumptions or additional functionality.
 
