@@ -2,7 +2,7 @@
 
 **Showcase:** WorkflowFox Showcase #2  
 **Phase:** 4 — Solution Architecture  
-**Status:** Draft for review  
+**Status:** Approved  
 **Architecture level:** Logical enterprise architecture  
 **Authoritative baselines:** [Business Discovery](../discovery/01-business-discovery.md), [Functional Requirements](../requirements/02-functional-requirements.md), and [Domain Model](../domain-model/03-domain-model.md)  
 **Scope:** Employer Account 360 read-only MVP
@@ -242,7 +242,7 @@ Salesforce
 - The Employer Administrator's browser and credentials never connect to Salesforce.
 - All portal-to-Salesforce access uses the dedicated service account through the Integration Layer.
 
-Therefore, portal users do not consume Salesforce end-user licenses merely to use this MVP. The service account itself must have an appropriate Salesforce identity, permissions, and entitlement; those details require confirmation during Security Design and later implementation planning.
+Therefore, Employer Administrators are not modeled as Salesforce Users and do not authenticate to Salesforce. The MVP does not require a Salesforce end-user identity for each portal user. The dedicated service account is the Salesforce identity used by the application; its exact Salesforce license, entitlement, permissions, and authentication mechanism must be validated for the target Salesforce environment during Security Design and implementation planning.
 
 ## 7. Data Ownership
 
@@ -351,18 +351,71 @@ This architecture does not define or introduce:
 - A business-safe unavailable message is sufficient at this phase; detailed failure presentation remains deferred.
 - Representative fictional data is available for validation.
 
-### 12.2 Open questions
+### 12.2 Resolved architecture decisions
 
-1. What is the approved name, format, lifecycle, and uniqueness authority for the stable portal-user-to-Contact correlation identifier?
-2. How are the few sample portal users provisioned, changed, disabled, and mapped without adding a user-administration use case?
-3. What password, authentication, and portal-session policies are proportionate to this production-inspired MVP?
-4. Which Salesforce service-account identity, entitlement, permissions, and credential mechanism are approved?
-5. What source request limits, expected record volumes, response-time targets, availability targets, and freshness expectations apply?
-6. Should a failure in one Account 360 section make the entire view unavailable, or may verified unaffected sections remain visible?
-7. Which authentication, authorization, integration, and business events require logging, and what redaction, access, and retention rules apply?
-8. Which configuration values are sensitive, who may change them, and what validation and change controls apply?
+The architecture-review questions are resolved for the showcase as follows. Detailed control selection remains appropriately deferred to Security Design, Data Model, and Implementation Design.
 
-These questions are inputs to later approved phases. They do not authorize new use cases or implementation decisions in this architecture.
+1. **Portal-user-to-Contact correlation identifier**
+   - Use one stable, opaque identifier generated and owned by the Employer Portal.
+   - Use a UUID-form identifier for the MVP.
+   - Persist the same correlation value on the portal-user record and on the corresponding Salesforce Contact.
+   - The portal is the authority for generating the identifier; Salesforce stores the matching value for correlation.
+   - The value must be unique for portal-enabled Contacts and must not be derived from email, username, Salesforce record ID, or other personally meaningful data.
+   - The physical Salesforce field API name and persistence schema are deferred to Data Model.
+
+2. **Sample portal-user provisioning**
+   - Provision a small fixed set of sample users as seeded MVP data.
+   - Do not build user registration, invitation, password-reset, or administration screens.
+   - Each sample user contains a username, protected password representation, enabled/disabled state, and Contact-correlation identifier.
+   - User changes are made through controlled project configuration/seed data rather than through an end-user administration capability.
+   - This is an MVP simplification, not the recommended production identity-management model.
+
+3. **Password, authentication, and session policy**
+   - Use portal-owned username/password authentication.
+   - Never store or log plaintext passwords.
+   - Store only a strong one-way password representation.
+   - Establish a server-side authenticated session after successful login.
+   - Sessions must expire, logout must invalidate the session, and authentication failures must not disclose whether a username exists.
+   - Exact hashing algorithm, cookie/token controls, timeout values, CSRF protections, and rate-limiting controls are deferred to Security Design.
+
+4. **Salesforce service account**
+   - Use one dedicated non-human Salesforce integration identity for the portal.
+   - Grant API access and least-privilege read access only to the Account, Contact, Enrollment, and correlation fields required by this MVP.
+   - Do not grant the integration identity administrative privileges merely for development convenience.
+   - Employer Administrators are not Salesforce Users and their credentials are never delegated to Salesforce.
+   - The exact Salesforce license/entitlement and credential mechanism must be validated in the target org; the architecture does not make a universal Salesforce licensing claim.
+   - Authentication mechanism, credential storage, rotation, and connected-app/external-client configuration are deferred to Security Design.
+
+5. **MVP volume, performance, availability, and freshness targets**
+   - Design the showcase for one active Employer Account per authenticated user.
+   - Validation data may include up to approximately 50 associated Contacts and 1,000 Enrollment Records for an Account, which is sufficient to exercise realistic list and summary behavior without pretending to model enterprise-scale production loads.
+   - Target an Employer Account 360 response within 3 seconds under normal showcase conditions.
+   - Retrieve authoritative business data from Salesforce for each Account 360 load; no cache is required for the MVP.
+   - Data freshness therefore follows successful Salesforce retrieval.
+   - No independent production SLA is claimed. Portal availability depends on the portal and Salesforce integration path.
+   - Production-scale throughput, rate limits, caching, pagination, and resilience requirements must be reassessed for a real client implementation.
+
+6. **Partial-failure behavior**
+   - If authentication, portal-user correlation, Salesforce Contact resolution, or Employer Account resolution fails, fail closed and do not display Employer Account 360.
+   - Once the Employer Account context is established, independent child sections may degrade separately.
+   - If Contacts are unavailable but Enrollment is verified, display Account and Enrollment and mark Contacts unavailable.
+   - If Enrollment is unavailable but Contacts are verified, display Account and Contacts and mark Enrollment unavailable; do not calculate a misleading Enrollment Summary.
+   - Confirmed empty collections remain valid empty results and must never be represented as failures.
+
+7. **Logging**
+   - Log authentication success/failure, logout/session invalidation, authorization/correlation failures, Account 360 request start/completion, Salesforce integration success/failure, source latency, unavailable-section outcomes, and unexpected application errors.
+   - Use a request/correlation ID for operational tracing.
+   - Do not log passwords, password hashes, session secrets, Salesforce credentials, authentication tokens, or unnecessary Contact/Enrollment data.
+   - Detailed event schema, log retention, access controls, and redaction implementation are deferred to Security Design and Implementation Design.
+
+8. **Configuration and secrets**
+   - Treat Salesforce credentials/tokens, portal session secrets, and any cryptographic material as sensitive.
+   - Treat source endpoints, approved field mappings, timeout values, and non-secret runtime settings as configuration rather than business logic.
+   - Only project/application maintainers may change protected configuration for the MVP.
+   - Sensitive values must not be committed to source control.
+   - Exact secret-management technology, rotation, environment separation, and configuration-validation mechanism are deferred to Security Design and Implementation Design.
+
+These decisions are sufficient to close the logical-architecture phase. They constrain later design without prematurely selecting frameworks, deployment infrastructure, or detailed security technologies.
 
 ## 13. Validation Strategy
 
@@ -421,9 +474,9 @@ Solution Architecture is complete when reviewers have:
 - confirmed data ownership for Portal Users, Employer Account, Employer Contacts, Enrollment, Session, Configuration, and derived Enrollment Summary;
 - approved AD-001 through AD-008 and their documented trade-offs;
 - confirmed that Salesforce-specific knowledge is contained within the Integration Layer;
-- reviewed risks, assumptions, open questions, and later-phase owners;
+- reviewed risks and assumptions and approved the resolved architecture decisions in §12.2;
 - verified that no endpoints, contracts, schemas, security implementation, technology stack, infrastructure, deployment, or additional use case has been introduced;
 - accepted the validation strategy; and
 - approved progression to the next lifecycle phase.
 
-Until these criteria are met, this document remains a Solution Architecture draft and no later major phase should begin.
+The architecture review has satisfied these criteria for the Showcase #2 MVP. This document is approved as the baseline for the next lifecycle phase. Later-phase discoveries that materially change these decisions require an explicit architecture amendment.
