@@ -2,7 +2,7 @@
 
 **Showcase:** WorkflowFox Showcase #2  
 **Phase:** 5 — Implementation Design  
-**Status:** Draft for review  
+**Status:** Approved  
 **Authoritative baselines:** [Business Discovery](../discovery/01-business-discovery.md), [Functional Requirements](../requirements/02-functional-requirements.md), [Domain Model](../domain-model/03-domain-model.md), and [Solution Architecture](../architecture/04-solution-architecture.md)  
 **Scope:** Employer Account 360 read-only MVP  
 **Technology reference review:** 2026-08-10
@@ -95,11 +95,11 @@ The exact OAuth flow, client configuration, credential storage, token lifecycle,
 | Frontend routing | Minimal client-side routing | Supports login and authenticated Account 360 navigation only; exact route design belongs to UX and API phases. |
 | Frontend data access | Browser-native HTTP client behind one typed application client | Avoids an unnecessary dependency; no component calls Salesforce or constructs backend operations directly. |
 | Backend | Python + FastAPI + Pydantic | Typed delivery models and validation with a concise modular-monolith implementation. |
-| Backend HTTP client | HTTPX | Centralized server-side Salesforce connectivity with explicit timeouts and test substitution. |
-| Portal-user persistence | SQLite through SQLAlchemy, with Alembic migrations | Provides transactional users and sessions, uniqueness enforcement, repository abstractions, and reproducible evolution without a database server. |
+| Backend HTTP client | Standards-based HTTP client | Centralized server-side Salesforce connectivity with explicit timeouts and test substitution. |
+| Portal-user persistence | SQLite through a relational persistence layer with controlled schema migrations | Provides transactional users and sessions, uniqueness enforcement, repository abstractions, and reproducible evolution without a database server. |
 | Authentication boundary | Portal authentication service with replaceable password-hasher and session-store interfaces | Supports username/password and server-side sessions while leaving algorithms and cookie controls to Security Design. |
 | Salesforce connectivity | Dedicated Salesforce adapter using platform REST/query capabilities over HTTPS | Keeps service-account authentication, source queries, paging, mappings, and errors isolated. No browser access or end-user Salesforce identity. |
-| Backend unit/integration testing | pytest, FastAPI test utilities, HTTPX mocking/stubbing | Supports isolated domain, application, persistence, delivery, and adapter testing. |
+| Backend unit/integration testing | pytest, FastAPI test utilities, Standards-based HTTP client mocking/stubbing | Supports isolated domain, application, persistence, delivery, and adapter testing. |
 | Frontend testing | Vitest, React Testing Library, and Playwright for a small end-to-end suite | Covers component behavior, user-visible states, and the full login-to-Account-360 journey. |
 | API contract tooling | OpenAPI 3.1 document in `contracts/`, Spectral linting, `openapi-typescript` for frontend types, and automated comparison of FastAPI's generated description with the approved contract | API Design owns the contract; generated types reduce frontend drift; CI detects contract mismatch. No contract is created in this phase. |
 | Frontend quality | TypeScript strict mode, ESLint, Prettier | Type, lint, and formatting checks are deterministic and automation-friendly. |
@@ -238,7 +238,7 @@ The physical table, column, index, and constraint definitions belong to Data Mod
 - Plaintext passwords are accepted only transiently during login or controlled local seeding and are never persisted or logged.
 - Successful authentication creates an opaque server-side session associated with the portal-user UUID.
 - SQLite persists session state for the MVP so logout and expiry can invalidate the session on the server.
-- The browser is expected to receive only an opaque session reference through a protected cookie; exact cookie flags, lifetime, rotation, CSRF protection, and hashing choices are Security Design decisions.
+- The browser receives an opaque server-managed session reference. Detailed session protection mechanisms are defined in Security Design.
 - Account 360 orchestration resolves the user from the validated session rather than accepting a user or Salesforce identifier from the frontend.
 
 ### 8.3 Seeded users
@@ -553,6 +553,21 @@ employer-account-portal/
 └── root task and quality configuration
 ```
 
+### 17.1 Folder ownership
+
+| Folder | Responsibility |
+|---|---|
+| frontend/ | UI |
+| backend/api/ | API delivery |
+| backend/application/ | Use cases |
+| backend/domain/ | Business rules |
+| backend/adapters/ | Salesforce & persistence |
+| backend/core/ | Cross-cutting concerns |
+| contracts/ | API contract |
+| docs/ | Documentation |
+| engineering-journal/ | Decisions and lessons |
+| assets/ | Screenshots and publishable assets |
+
 Generated files, local SQLite databases, environment files, secrets, logs, caches, test output, and build output must be ignored. The repository structure separates artifacts by lifecycle phase and code by business responsibility.
 
 ## 18. Local Development Experience
@@ -584,6 +599,8 @@ Real mode replaces only the gateway implementation and its configuration. The de
 ## 19. AI-Assisted Engineering Considerations
 
 AI supports implementation productivity; it is not an Employer Account 360 runtime feature.
+
+**AI accelerates implementation but never becomes the implementation authority.**
 
 | Engineering activity | Appropriate AI assistance | Required control |
 |---|---|---|
@@ -633,17 +650,24 @@ Prompts and meaningful AI-assisted decisions may be recorded for the Engineering
 | IR-013 | Scope creeps into full portal capabilities. | More infrastructure, modules, and UI than the showcase justifies. | Repository and test traceability to the sole use case; reject unapproved features during review. |
 | IR-014 | Dependency or version choices age quickly. | Security or maintenance burden. | Pin supported stable versions, automate dependency review, record upgrades, and rerun validation before accepting changes. |
 
-### 21.1 Unresolved questions for later approved phases
+### 21.1 Remaining decisions for later phases
 
-1. Which exact OpenAPI operations, response models, protocol statuses, and section-state representation will API Design approve?
-2. Which password hashing algorithm and parameters, session lifetime, cookie controls, CSRF controls, login throttling, and secret-management approach will Security Design approve?
-3. Which Salesforce OAuth flow, external client/connected-app configuration, integration-user entitlement, API version, and token-lifecycle behavior will the target org approve?
-4. What are the concrete Salesforce custom-object and field API names for the approved business fields and correlation UUID?
-5. What exact connection and operation timeout budgets satisfy the three-second target in the Salesforce development environment?
-6. Will the later deployment use one origin or separate frontend and backend origins, and what configuration follows from that decision?
-7. What production accessibility, browser, retention, backup, recovery, and operational targets apply beyond showcase validation?
+Resolved in this phase:
 
-These questions refine approved mechanisms; they do not authorize additional business scope.
+- Approved API operations are limited to **Login**, **Logout**, and **Employer Account 360 retrieval**. No CRUD operations are part of the MVP.
+- Timeout guidance is established as:
+  - Connection timeout: 5 seconds
+  - Read timeout: 15 seconds
+  - Normal Account 360 target: under 3 seconds
+  - Graceful failure before 20 seconds
+
+Deferred to later phases:
+
+1. Password hashing, session protection, CSRF, and secret management (Security Design).
+2. Salesforce OAuth flow, integration identity configuration, and credential lifecycle (Security Design).
+3. Salesforce object and field API names (Data Model).
+4. Deployment topology (Deployment Design).
+5. Production accessibility and operational targets (Validation/Deployment).
 
 ## 22. Validation Criteria
 
