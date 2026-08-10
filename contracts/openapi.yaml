@@ -1,0 +1,769 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+
+info:
+  title: Employer Account Portal API
+  version: 1.0.0
+  summary: Business-oriented contract for the Employer Account Portal MVP
+  contact:
+    name: WorkflowFox Engineering
+  description: >-
+    Contract between the Employer Portal frontend and Application API. It supports
+    portal login, logout, and read-only Employer Account 360 retrieval. Employer
+    context is derived exclusively from the server-managed portal session. The
+    contract exposes no source-system identifiers, queries, credentials, or errors.
+
+servers:
+  - url: /api/v1
+    description: Version 1 relative base path
+
+tags:
+  - name: Authentication
+    description: Portal-managed session operations.
+  - name: Employer Account 360
+    description: Read-only employer business information for the authenticated portal user.
+
+security: []
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      operationId: login
+      summary: Log in to the Employer Portal
+      description: >-
+        Authenticates a portal-managed Employer Administrator and establishes an
+        opaque server-managed session cookie. Authentication failures do not reveal
+        whether the username exists.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              fictionalWorkflowInsuranceUser:
+                summary: Fictional showcase credentials
+                description: The password is illustrative and is not a real or reusable credential.
+                value:
+                  username: workflow.admin
+                  password: NotARealPassword123!
+      responses:
+        '204':
+          description: Login succeeded and the server-managed portal session was established.
+          headers:
+            Set-Cookie:
+              description: >-
+                Establishes the opaque portal session cookie. Cookie security attributes
+                and lifecycle controls are governed by Security Design.
+              schema:
+                type: string
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/AuthenticationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      operationId: logout
+      summary: Log out of the Employer Portal
+      description: >-
+        Invalidates the current server-side portal session when present. The operation
+        is externally idempotent and succeeds when the session is absent, expired, or
+        already invalid.
+      security:
+        - cookieAuth: []
+        - {}
+      responses:
+        '204':
+          description: Logout processing completed; no current portal session remains usable.
+          headers:
+            Set-Cookie:
+              description: Expires the portal session cookie when one is present.
+              schema:
+                type: string
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /employer-account-360:
+    get:
+      tags:
+        - Employer Account 360
+      operationId: getEmployerAccount360
+      summary: Retrieve Employer Account 360
+      description: >-
+        Returns the complete read-only business representation for the single employer
+        associated with the authenticated portal user. The client supplies no employer,
+        Contact, Account, correlation, query, filtering, or pagination identifier. Child
+        sections can be independently empty or unavailable after the required Employer
+        Account context is established.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: >-
+            Employer Account 360 was retrieved. Child section availability is represented
+            explicitly in the response and can include degraded sections.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployerAccount360'
+              examples:
+                completeSuccess:
+                  summary: Complete Account 360
+                  value:
+                    employer:
+                      employerName: Workflow Insurance Services
+                      employerGroupId: WFI-GRP-1001
+                      status: Active
+                      industry: Insurance
+                    contacts:
+                      state: available
+                      items:
+                        - firstName: Maya
+                          lastName: Chen
+                          email: maya.chen@example.com
+                          phone: +1-555-0101
+                          roleTitle: Benefits Administrator
+                        - firstName: Noah
+                          lastName: Williams
+                          email: noah.williams@example.com
+                          phone: null
+                          roleTitle: Human Resources Manager
+                    enrollment:
+                      state: available
+                      items:
+                        - enrollmentId: ENR-10001
+                          memberDisplayName: Jordan Lee
+                          planName: Essential PPO
+                          status: Active
+                          effectiveDate: '2026-01-01'
+                        - enrollmentId: ENR-10002
+                          memberDisplayName: Avery Morgan
+                          planName: Essential PPO
+                          status: Pending
+                          effectiveDate: '2026-09-01'
+                        - enrollmentId: ENR-10003
+                          memberDisplayName: Riley Patel
+                          planName: Core HMO
+                          status: Terminated
+                          effectiveDate: '2025-01-01'
+                    enrollmentSummary:
+                      state: available
+                      total: 3
+                      active: 1
+                      pending: 1
+                      terminated: 1
+
+                emptyEnrollment:
+                  summary: Confirmed empty Enrollment with zero summary
+                  value:
+                    employer:
+                      employerName: Workflow Insurance Services
+                      employerGroupId: WFI-GRP-1001
+                      status: Active
+                      industry: Insurance
+                    contacts:
+                      state: available
+                      items:
+                        - firstName: Maya
+                          lastName: Chen
+                          email: maya.chen@example.com
+                          phone: +1-555-0101
+                          roleTitle: Benefits Administrator
+                    enrollment:
+                      state: empty
+                      items: []
+                    enrollmentSummary:
+                      state: available
+                      total: 0
+                      active: 0
+                      pending: 0
+                      terminated: 0
+
+                contactsUnavailable:
+                  summary: Contacts unavailable while Enrollment remains available
+                  value:
+                    employer:
+                      employerName: Workflow Insurance Services
+                      employerGroupId: WFI-GRP-1001
+                      status: Active
+                      industry: Insurance
+                    contacts:
+                      state: unavailable
+                      items: []
+                      message: This information is temporarily unavailable. Please try again later.
+                    enrollment:
+                      state: available
+                      items:
+                        - enrollmentId: ENR-10001
+                          memberDisplayName: Jordan Lee
+                          planName: Essential PPO
+                          status: Active
+                          effectiveDate: '2026-01-01'
+                    enrollmentSummary:
+                      state: available
+                      total: 1
+                      active: 1
+                      pending: 0
+                      terminated: 0
+
+                enrollmentUnavailable:
+                  summary: Enrollment and Summary unavailable while Contacts remain available
+                  value:
+                    employer:
+                      employerName: Workflow Insurance Services
+                      employerGroupId: WFI-GRP-1001
+                      status: Active
+                      industry: Insurance
+                    contacts:
+                      state: available
+                      items:
+                        - firstName: Maya
+                          lastName: Chen
+                          email: maya.chen@example.com
+                          phone: +1-555-0101
+                          roleTitle: Benefits Administrator
+                    enrollment:
+                      state: unavailable
+                      items: []
+                      message: This information is temporarily unavailable. Please try again later.
+                    enrollmentSummary:
+                      state: unavailable
+                      message: This information is temporarily unavailable. Please try again later.
+
+                bothChildSectionsUnavailable:
+                  summary: Both child sections unavailable with required Account present
+                  value:
+                    employer:
+                      employerName: Workflow Insurance Services
+                      employerGroupId: WFI-GRP-1001
+                      status: Active
+                      industry: Insurance
+                    contacts:
+                      state: unavailable
+                      items: []
+                      message: This information is temporarily unavailable. Please try again later.
+                    enrollment:
+                      state: unavailable
+                      items: []
+                      message: This information is temporarily unavailable. Please try again later.
+                    enrollmentSummary:
+                      state: unavailable
+                      message: This information is temporarily unavailable. Please try again later.
+        '401':
+          $ref: '#/components/responses/SessionRequired'
+        '403':
+          $ref: '#/components/responses/AccessUnavailable'
+        '503':
+          $ref: '#/components/responses/Account360Unavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: portal_session
+      description: >-
+        Opaque reference to a server-managed portal session. It contains no frontend-readable
+        employer or source-system business context. Security Design governs cookie protection.
+
+  headers:
+    RequestId:
+      description: Opaque request correlation value for support and redacted operational tracing.
+      schema:
+        $ref: '#/components/schemas/RequestId'
+
+  responses:
+    InvalidRequest:
+      description: The request does not conform to the approved contract.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalidRequest:
+              value:
+                code: INVALID_REQUEST
+                message: The request could not be processed.
+                requestId: req-7f3c2b98
+
+    AuthenticationFailed:
+      description: Portal credentials were not accepted.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            authenticationFailed:
+              value:
+                code: AUTHENTICATION_FAILED
+                message: The username or password is incorrect.
+                requestId: req-125fdd31
+
+    SessionRequired:
+      description: A valid current portal session is required.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            sessionRequired:
+              value:
+                code: SESSION_REQUIRED
+                message: Please sign in to continue.
+                requestId: req-1af09c6e
+
+    AccessUnavailable:
+      description: The single authorized employer context could not be established safely.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            accessUnavailable:
+              value:
+                code: ACCESS_UNAVAILABLE
+                message: We cannot access your employer information.
+                requestId: req-e92d7bc0
+
+    Account360Unavailable:
+      description: The required Employer Account 360 parent information is temporarily unavailable.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            account360Unavailable:
+              value:
+                code: ACCOUNT_360_UNAVAILABLE
+                message: This information is temporarily unavailable. Please try again later.
+                requestId: req-c84620da
+
+    InternalError:
+      description: An unexpected Application API failure occurred.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            internalError:
+              value:
+                code: INTERNAL_ERROR
+                message: This information is temporarily unavailable. Please try again later.
+                requestId: req-931c7f1a
+
+  schemas:
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 1
+          description: Portal-managed username.
+          example: workflow.admin
+        password:
+          type: string
+          minLength: 1
+          writeOnly: true
+          description: Portal password used only for authentication.
+
+    EmployerAccount360:
+      type: object
+      additionalProperties: false
+      required:
+        - employer
+        - contacts
+        - enrollment
+        - enrollmentSummary
+      properties:
+        employer:
+          $ref: '#/components/schemas/EmployerAccount'
+        contacts:
+          $ref: '#/components/schemas/ContactSection'
+        enrollment:
+          $ref: '#/components/schemas/EnrollmentSection'
+        enrollmentSummary:
+          $ref: '#/components/schemas/EnrollmentSummary'
+
+    EmployerAccount:
+      type: object
+      additionalProperties: false
+      required:
+        - employerName
+        - employerGroupId
+        - status
+        - industry
+      properties:
+        employerName:
+          type: string
+          minLength: 1
+          description: Employer display name.
+          example: Workflow Insurance Services
+        employerGroupId:
+          type: string
+          minLength: 1
+          description: Approved Employer/Group business identifier, not a source-system record ID.
+          example: WFI-GRP-1001
+        status:
+          type: string
+          minLength: 1
+          description: Employer business status.
+          example: Active
+        industry:
+          type: string
+          minLength: 1
+          description: Employer industry description.
+          example: Insurance
+
+    ContactSection:
+      oneOf:
+        - $ref: '#/components/schemas/AvailableContactSection'
+        - $ref: '#/components/schemas/EmptyContactSection'
+        - $ref: '#/components/schemas/UnavailableContactSection'
+      discriminator:
+        propertyName: state
+        mapping:
+          available: '#/components/schemas/AvailableContactSection'
+          empty: '#/components/schemas/EmptyContactSection'
+          unavailable: '#/components/schemas/UnavailableContactSection'
+
+    AvailableContactSection:
+      type: object
+      additionalProperties: false
+      required:
+        - state
+        - items
+      properties:
+        state:
+          type: string
+          enum:
+            - available
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/EmployerContact'
+
+    EmptyContactSection:
+      type: object
+      additionalProperties: false
+      required:
+        - state
+        - items
+      properties:
+        state:
+          type: string
+          enum:
+            - empty
+        items:
+          type: array
+          maxItems: 0
+          items:
+            $ref: '#/components/schemas/EmployerContact'
+
+    UnavailableContactSection:
+      type: object
+      additionalProperties: false
+      required:
+        - state
+        - items
+        - message
+      properties:
+        state:
+          type: string
+          enum:
+            - unavailable
+        items:
+          type: array
+          maxItems: 0
+          items:
+            $ref: '#/components/schemas/EmployerContact'
+        message:
+          $ref: '#/components/schemas/UnavailableMessage'
+
+    EmployerContact:
+      type: object
+      additionalProperties: false
+      required:
+        - firstName
+        - lastName
+        - email
+        - phone
+        - roleTitle
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          description: Contact first name.
+          example: Maya
+        lastName:
+          type: string
+          minLength: 1
+          description: Contact last name.
+          example: Chen
+        email:
+          type:
+            - string
+            - 'null'
+          format: email
+          description: Contact email when available.
+          example: maya.chen@example.com
+        phone:
+          type:
+            - string
+            - 'null'
+          minLength: 1
+          description: Contact phone when available.
+          example: +1-555-0101
+        roleTitle:
+          type:
+            - string
+            - 'null'
+          minLength: 1
+          description: Contact role or title when available.
+          example: Benefits Administrator
+
+    EnrollmentSection:
+      oneOf:
+        - $ref: '#/components/schemas/AvailableEnrollmentSection'
+        - $ref: '#/components/schemas/EmptyEnrollmentSection'
+        - $ref: '#/components/schemas/UnavailableEnrollmentSection'
+      discriminator:
+        propertyName: state
+        mapping:
+          available: '#/components/schemas/AvailableEnrollmentSection'
+          empty: '#/components/schemas/EmptyEnrollmentSection'
+          unavailable: '#/components/schemas/UnavailableEnrollmentSection'
+
+    AvailableEnrollmentSection:
+      type: object
+      additionalProperties: false
+      required:
+        - state
+        - items
+      properties:
+        state:
+          type: string
+          enum:
+            - available
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/EnrollmentRecord'
+
+    EmptyEnrollmentSection:
+      type: object
+      additionalProperties: false
+      required:
+        - state
+        - items
+      properties:
+        state:
+          type: string
+          enum:
+            - empty
+        items:
+          type: array
+          maxItems: 0
+          items:
+            $ref: '#/components/schemas/EnrollmentRecord'
+
+    UnavailableEnrollmentSection:
+      type: object
+      additionalProperties: false
+      required:
+        - state
+        - items
+        - message
+      properties:
+        state:
+          type: string
+          enum:
+            - unavailable
+        items:
+          type: array
+          maxItems: 0
+          items:
+            $ref: '#/components/schemas/EnrollmentRecord'
+        message:
+          $ref: '#/components/schemas/UnavailableMessage'
+
+    EnrollmentRecord:
+      type: object
+      additionalProperties: false
+      required:
+        - enrollmentId
+        - memberDisplayName
+        - planName
+        - status
+        - effectiveDate
+      properties:
+        enrollmentId:
+          type: string
+          minLength: 1
+          description: Approved Enrollment business identifier, not a source-system record ID.
+          example: ENR-10001
+        memberDisplayName:
+          type: string
+          minLength: 1
+          description: Approved employee or member display name.
+          example: Jordan Lee
+        planName:
+          type: string
+          minLength: 1
+          description: Employer-sponsored plan display name.
+          example: Essential PPO
+        status:
+          $ref: '#/components/schemas/EnrollmentStatus'
+        effectiveDate:
+          type: string
+          format: date
+          description: Enrollment effective date in ISO 8601 date-only form.
+          example: '2026-01-01'
+
+    EnrollmentStatus:
+      type: string
+      enum:
+        - Active
+        - Pending
+        - Terminated
+      description: Approved Enrollment status for the MVP.
+
+    EnrollmentSummary:
+      oneOf:
+        - $ref: '#/components/schemas/AvailableEnrollmentSummary'
+        - $ref: '#/components/schemas/UnavailableEnrollmentSummary'
+      discriminator:
+        propertyName: state
+        mapping:
+          available: '#/components/schemas/AvailableEnrollmentSummary'
+          unavailable: '#/components/schemas/UnavailableEnrollmentSummary'
+
+    AvailableEnrollmentSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - state
+        - total
+        - active
+        - pending
+        - terminated
+      properties:
+        state:
+          type: string
+          enum:
+            - available
+        total:
+          type: integer
+          minimum: 0
+          description: Total number of complete trusted Enrollment Records.
+          example: 3
+        active:
+          type: integer
+          minimum: 0
+          description: Number of Enrollment Records with Active status.
+          example: 1
+        pending:
+          type: integer
+          minimum: 0
+          description: Number of Enrollment Records with Pending status.
+          example: 1
+        terminated:
+          type: integer
+          minimum: 0
+          description: Number of Enrollment Records with Terminated status.
+          example: 1
+
+    UnavailableEnrollmentSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - state
+        - message
+      properties:
+        state:
+          type: string
+          enum:
+            - unavailable
+        message:
+          $ref: '#/components/schemas/UnavailableMessage'
+
+    UnavailableMessage:
+      type: string
+      enum:
+        - This information is temporarily unavailable. Please try again later.
+      description: Approved business-safe unavailable message.
+
+    ErrorCode:
+      type: string
+      enum:
+        - AUTHENTICATION_FAILED
+        - SESSION_REQUIRED
+        - ACCESS_UNAVAILABLE
+        - ACCOUNT_360_UNAVAILABLE
+        - INVALID_REQUEST
+        - INTERNAL_ERROR
+      description: Platform-neutral Application API error category.
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - requestId
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          minLength: 1
+          description: User-safe error message with no source or implementation detail.
+        requestId:
+          $ref: '#/components/schemas/RequestId'
+
+    RequestId:
+      type: string
+      minLength: 1
+      description: >-
+        Opaque operational correlation value. It is not a portal-user, session,
+        employer, Enrollment, or source-system identifier.
+      example: req-7f3c2b98
