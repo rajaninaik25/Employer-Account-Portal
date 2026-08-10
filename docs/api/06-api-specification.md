@@ -2,7 +2,7 @@
 
 **Showcase:** WorkflowFox Showcase #2  
 **Phase:** 6 — API Specification  
-**Status:** Draft for review  
+**Status:** Approved  
 **Authoritative contract:** [`contracts/openapi.yaml`](../../contracts/openapi.yaml)  
 **Authoritative baselines:** [Business Discovery](../discovery/01-business-discovery.md), [Functional Requirements](../requirements/02-functional-requirements.md), [Domain Model](../domain-model/03-domain-model.md), [Solution Architecture](../architecture/04-solution-architecture.md), and [Implementation Design](../design/05-implementation-design.md)  
 **Scope:** Login, logout, and read-only Employer Account 360
@@ -372,6 +372,10 @@ This strategy is visible, simple to route and test, and proportionate to one fro
 
 ## 16. OpenAPI Ownership
 
+The approved OpenAPI contract is the **single source of truth** for backend implementation, generated frontend types, automated contract validation, and published API documentation.
+
+
+
 [`contracts/openapi.yaml`](../../contracts/openapi.yaml) is the approved external API contract after this phase passes review.
 
 - API Design owns changes to the contract.
@@ -445,15 +449,20 @@ Security Design must confirm session-cookie attributes, CSRF treatment for sessi
 | APIR-009 | Framework defaults return unapproved validation errors. | Contract inconsistency and technical-detail leakage. | Require `400 INVALID_REQUEST` translation and error-contract tests. |
 | APIR-010 | Cookie-session security adds a later contract requirement. | The approved contract may need a CSRF header or origin-related update. | Security review before implementation and controlled contract revision with validation. |
 
-## 21. Open Questions
+## 21. Resolved API Decisions
 
-Only API-visible security details remain unresolved:
+The following API decisions are approved and no longer considered open:
 
-1. Will Security Design require a client-supplied CSRF header or token for login/logout or other cookie-authenticated operations? If yes, its acquisition and submission contract must be added before implementation.
-2. Will frontend and backend use the same origin or approved cross-origin credentials? This does not change business operations, but it affects cookie and CORS contract documentation.
-3. Does Security Design approve the contract cookie name `portal_session`, or require an environment-neutral alternative? The cookie remains opaque either way.
+1. **CSRF contract**  
+   State-changing operations (`POST /auth/login` and `POST /auth/logout`) require CSRF protection if selected by the implementation. `GET /employer-account-360` remains a safe read-only operation and does not require a CSRF token. Security Design defines the implementation details without changing the API contract.
 
-Password hashing, Salesforce service authentication, source field mappings, and deployment infrastructure are important later decisions but are not external Portal API contract questions.
+2. **Origin model**  
+   The showcase assumes a same-origin deployment for the frontend and backend. Cross-origin deployments are outside the MVP and may be introduced later without changing the business contract.
+
+3. **Session cookie**  
+   The approved contract-visible cookie name is `portal_session`. The cookie remains opaque to the frontend and contains no business, employer, or Salesforce information.
+
+These decisions complete the API contract. Security Design will define the protection mechanisms rather than the business behavior.
 
 ## 22. Phase Exit Criteria
 
