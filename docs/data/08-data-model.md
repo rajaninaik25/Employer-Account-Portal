@@ -2,7 +2,7 @@
 
 **Showcase:** WorkflowFox Showcase #2<br>
 **Phase:** 8 — Data Model<br>
-**Status:** Draft for review<br>
+**Status:** Approved<br>
 **Authoritative baselines:** [Business Discovery](../discovery/01-business-discovery.md), [Functional Requirements](../requirements/02-functional-requirements.md), [Domain Model](../domain-model/03-domain-model.md), [Solution Architecture](../architecture/04-solution-architecture.md), [Implementation Design](../design/05-implementation-design.md), [API Specification](../api/06-api-specification.md), [`contracts/openapi.yaml`](../../contracts/openapi.yaml), and [Security Design](../security/07-security-design.md)<br>
 **Scope:** Logical and physical data model for the read-only Employer Account 360 MVP
 
@@ -529,6 +529,8 @@ The dedicated integration identity requires object-level Read plus field-level R
 
 The integration identity also needs API access and record-level visibility for the representative records, but not `View All Data`, `Modify All Data`, administrative Setup permissions, unrelated objects, or unrelated fields. Because Enrollment uses Lookup rather than Master-Detail, its record-level sharing must be configured explicitly and validated. Relationship fields required only for traversal remain adapter-private.
 
+The field-permission matrix above defines the maximum field surface required by the application. Record-level visibility for Account, Contact, and Enrollment must be validated separately under the target Salesforce sharing model. Field-level permission does not substitute for record-level sharing enforcement.
+
 ## 20. Indexing and Data Volume
 
 Approved showcase validation bounds are:
@@ -603,13 +605,13 @@ Without implementing them now, the boundaries support later evolution to:
 
 Future extensibility does not authorize any of these capabilities in the MVP.
 
-## 24. Open Questions
+## 24. Resolved Decisions and Environment Validation
 
-### 24.1 Design decisions
+### 24.1 Resolved design decisions
 
 The reference implementation decisions are resolved in this document: field names/types, UUID ownership and format, External ID/Unique behavior, required Lookup relationship, Auto Number Enrollment ID, SQLite models/indexes, source-to-domain mappings, API mappings, summary derivation, and failure behavior are not open.
 
-### 24.2 Environment validation items
+### 24.2 Required environment validation items
 
 The following depend on the actual Salesforce development environment and do not automatically block Data Model approval:
 
@@ -620,7 +622,7 @@ The following depend on the actual Salesforce development environment and do not
 5. Confirm the required `Employer_Account__c` Lookup and record-level sharing allow the dedicated integration identity to read only the representative Enrollment records without broad permissions.
 6. Confirm the final field-level permission set exactly matches Section 19 and that all unapproved field and mutation tests fail.
 
-### 24.3 Remaining genuine open questions
+### 24.3 Remaining design questions
 
 No unresolved business or reference-design question remains for this phase. A material mismatch discovered during environment validation requires a documented Data Model amendment; it does not authorize an ad hoc source or API change.
 
@@ -643,4 +645,4 @@ Data Model is complete when reviewers have:
 - confirmed that no new business entity, application capability, runtime AI feature, SQL, migration, Salesforce metadata, or application code has been introduced; and
 - approved progression to User Experience Design.
 
-Until these criteria are met, this artifact remains a draft and implementation must not treat it as approved.
+The Phase 8 Data Model is approved for progression to User Experience Design. Environment-specific Salesforce metadata, sharing, and permission checks remain mandatory validation tasks before implementation is declared complete.
