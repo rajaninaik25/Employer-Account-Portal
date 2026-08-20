@@ -1,0 +1,13 @@
+title = "Employer Account Portal — Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Paths that legitimately contain no real secrets"
+paths = [
+  '''(^|/)\.env\.example$''',
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)uv\.lock$''',
+  '''(^|/)tests/fixtures/salesforce/.*''',
+]

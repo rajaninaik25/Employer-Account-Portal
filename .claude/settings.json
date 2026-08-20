@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:*)",
+      "Bash(sf data query *)",
+      "Bash(uv run pytest -v)",
+      "Bash(sf org list*)",
+      "Bash(corepack pnpm build)",
+      "Bash(python3 -m json.tool)",
+      "Bash(corepack pnpm lint)",
+      "Bash(corepack pnpm typecheck)",
+      "Bash(uv run ruff check .)",
+      "Bash(npm test)",
+      "Bash(corepack pnpm test:e2e)",
+      "Bash(git config user.name)",
+      "Bash(git config user.email)",
+      "Bash(npm run build)",
+      "Bash(npm run test)",
+      "Bash(npm run e2e)"
+    ]
+  }
+}
